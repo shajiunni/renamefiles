@@ -1,0 +1,50 @@
+name: Device Removal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  remove-devices:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Delete existing device-removal branches
+      run: |
+        git fetch --prune --unshallow || true
+        EXISTING_BRANCHES=$(git branch -r | grep 'device-removal*' | sed 's/\*//g')
+        if [ -n "$EXISTING_BRANCHES" ]; then
+          echo "Deleting existing device-removal branches: $EXISTING_BRANCHES"
+          git push origin --delete $EXISTING_BRANCHES
+        else
+          echo "No existing device-removal branches found."
+        fi
+
+    - name: Create new branch
+      run: |
+        DATE=$(date +%Y-%m-%d)
+        BRANCH_NAME=device-removal-$DATE
+        git checkout -b $BRANCH_NAME
+
+    - name: Find and delete files
+      run: |
+        find . -name 'pattern-to-match' -delete
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "${{ secrets.GIT_USER_NAME }}"
+        git config user.email "${{ secrets.GIT_USER_EMAIL }}"
+        git add .
+        git commit -m "Delete files matching pattern"
+        git push origin device-removal-$DATE
+
+    - name: Create pull request
+      uses: peter-evans/create-pull-request@v4
+      with:
+        branch: device-removal-$DATE
+        title: 'Device Removal'
+        body: 'This PR removes files matching the specified pattern.'
